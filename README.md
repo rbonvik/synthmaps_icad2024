@@ -1,5 +1,5 @@
 # Synth Maps
-Code repository for my paper "Synth Maps: Mapping The Non-Proportional Relationships Between Synthesizer Parameters and Synthesized Sound" for ICAD2024.
+Code repository for our paper "Synth Maps: Mapping The Non-Proportional Relationships Between Synthesizer Parameters and Synthesized Sound" for ICAD2024.
 
 Download the record from Zenodo to get all datasets (recommended):
 
@@ -71,3 +71,24 @@ Note that *05_render_embeddings.py* will need internet connection to download th
 When you generated all datasets (or using the data included in the Zenodo record), open Max, and open the *max/SynthMaps.maxpat* (from this repo). Then follow the instructions in the patch.
 
 ![image of the Synthmaps patch](synthmaps_patch.png "Synthmaps")
+
+# How to cite
+## APA
+```
+Laczkó, B., & Jensenius, A. R. (2024). Synth Maps: Mapping the Non-Proportional Relationships Between Synthesizer Parameters and Synthesized Sound. Proceedings of the 29th International Conference on Auditory Display (ICAD2024), 181–184. https://hdl.handle.net/1853/76316
+```
+
+## BibTeX
+```
+@inproceedings{laczkoSynthMapsMapping2024,
+	address = {Troy, NY, USA},
+	title = {Synth {Maps}: {Mapping} the {Non}-{Proportional} {Relationships} {Between} {Synthesizer} {Parameters} and {Synthesized} {Sound}},
+	url = {https://hdl.handle.net/1853/76316},
+	booktitle = {Proceedings of the 29th {International} {Conference} on {Auditory} {Display} ({ICAD2024})},
+	publisher = {The International Community for Auditory Display},
+	author = {Laczkó, Bálint and Jensenius, Alexander Refsum},
+	year = {2024},
+	keywords = {\#1 Sonification, \#4 ML Sonification},
+	pages = {181--184},
+}
+```
