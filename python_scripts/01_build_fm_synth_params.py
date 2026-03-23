@@ -2,8 +2,10 @@
 # imports
 import numpy as np
 import pandas as pd
-from utils import midi2frequency, array2fluid_dataset
+from utils import midi2frequency, array2fluid_dataset, get_data_path
 import json
+
+data_path = get_data_path()
 
 # %%
 # create ranges for each parameter
@@ -38,7 +40,7 @@ df.head()
 
 # %%
 # save to disk
-df.to_csv("../data/fm_synth_params.csv", index=True)
+df.to_csv(data_path + "/fm_synth_params.csv", index=True)
 
 # %%
 # export fm params as fluid dataset
@@ -48,7 +50,7 @@ df_params_fm = df_params_fm.values
 # save as fluid dataset
 df_params_fm_dict = array2fluid_dataset(df_params_fm)
 # save to json
-with open("../data/fm_params.json", "w") as f:
+with open(data_path + "/fm_params.json", "w") as f:
     json.dump(df_params_fm_dict, f)
 
 # %%
@@ -66,11 +68,11 @@ colors = np.stack((x, y, z, alpha), axis=-1)
 
 # %%
 # save to disk
-np.save("../data/colors.npy", colors)
+np.save(data_path + "/colors.npy", colors)
 # save the colors array
 colors_dict = array2fluid_dataset(colors)
 # save to json
-with open("../data/colors.json", "w") as f:
+with open(data_path + "/colors.json", "w") as f:
     json.dump(colors_dict, f)
 
 # %%

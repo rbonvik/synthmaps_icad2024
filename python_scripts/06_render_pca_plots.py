@@ -5,14 +5,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
-from utils import frequency2midi, array2fluid_dataset
+from utils import frequency2midi, array2fluid_dataset, get_data_path
 import json
+
+data_path = get_data_path()
 
 # %%
 # create a 2D scatter plot of the PCA-d synth parameters
 
 # read dataset
-df_params = pd.read_csv("../data/fm_synth_params.csv", index_col=0)
+df_params = pd.read_csv(data_path + "/fm_synth_params.csv", index_col=0)
 # get the freq column
 freq = df_params["freq"].values
 # translate to midi
@@ -75,7 +77,7 @@ with open("../data/pca_params.json", "w") as f:
 
 # read dataset
 df_perceptual = pd.read_csv(
-    "../data/fm_synth_perceptual_features.csv", index_col=0)
+    data_path + "/fm_synth_perceptual_features.csv", index_col=0)
 # extract perceptual features
 df_perceptual_7d = df_perceptual[[
     "hardness", "depth", "brightness", "roughness", "warmth", "sharpness", "boominess"]]
@@ -128,11 +130,11 @@ plt.title(
     f"PCA of FM synth perceptual features\nexplained variance ratio: {np.round(pca.explained_variance_ratio_.sum(), 2)}", fontsize=fontsize)
 
 # save figure as png
-plt.savefig("../figures/pca_perceptual.png", format="png")
+plt.savefig(data_path + "/pca_perceptual.png", format="png")
 
 # save the pca plot as a fluid dataset
 pca_perceptual = array2fluid_dataset(df_perceptual_2d)
-with open("../data/pca_perceptual.json", "w") as f:
+with open(data_path + "/pca_perceptual.json", "w") as f:
     json.dump(pca_perceptual, f)
 
 
@@ -141,7 +143,7 @@ with open("../data/pca_perceptual.json", "w") as f:
 
 # read dataset
 df_spectral = pd.read_csv(
-    "../data/fm_synth_spectral_features.csv", index_col=0)
+    data_path + "/fm_synth_spectral_features.csv", index_col=0)
 
 # extract spectral features
 df_spectral_11d = df_spectral[[
@@ -191,18 +193,18 @@ plt.title(
     f"PCA of FM synth spectral features\nexplained variance ratio: {np.round(pca.explained_variance_ratio_.sum(), 2)}", fontsize=fontsize)
 
 # save figure as png
-plt.savefig("../figures/pca_spectral.png", format="png")
+plt.savefig(data_path + "/pca_spectral.png", format="png")
 
 # save the pca plot as a fluid dataset
 pca_spectral = array2fluid_dataset(df_spectral_2d)
-with open("../data/pca_spectral.json", "w") as f:
+with open(data_path + "/pca_spectral.json", "w") as f:
     json.dump(pca_spectral, f)
 
 
 # %%
 # create pca plot for embeddings - ENCODEC
 # read embeddings
-embeddings = np.load("../data/fm_synth_encodec_embeddings.npy")
+embeddings = np.load(data_path + "/fm_synth_encodec_embeddings.npy")
 embeddings_2d = embeddings.reshape((embeddings.shape[0], -1))
 
 # create PCA
@@ -222,17 +224,17 @@ plt.title(
     f"PCA of FM synth EnCodec embeddings\nexplained variance ratio: {np.round(pca.explained_variance_ratio_.sum(), 2)}", fontsize=fontsize)
 
 # save figure as png
-plt.savefig("../figures/pca_encodec.png", format="png")
+plt.savefig(data_path + "/pca_encodec.png", format="png")
 
 # save the pca plot as a fluid dataset
 pca_embeddings = array2fluid_dataset(embeddings_2d_pca)
-with open("../data/pca_encodec.json", "w") as f:
+with open(data_path + "/pca_encodec.json", "w") as f:
     json.dump(pca_embeddings, f)
 
 # %%
 # create pca plot for embeddings - CLAP
 # read embeddings
-embeddings = np.load("../data/fm_synth_clap_embeddings.npy")
+embeddings = np.load(data_path + "/fm_synth_clap_embeddings.npy")
 
 # create PCA
 pca = PCA(n_components=2, whiten=True, random_state=42)
@@ -251,18 +253,18 @@ plt.title(
     f"PCA of FM synth CLAP embeddings\nexplained variance ratio: {np.round(pca.explained_variance_ratio_.sum(), 2)}", fontsize=fontsize)
 
 # save figure as png
-plt.savefig("../figures/pca_clap.png", format="png")
+plt.savefig(data_path + "/pca_clap.png", format="png")
 
 # save the pca plot as a fluid dataset
 pca_embeddings = array2fluid_dataset(embeddings_2d_pca)
-with open("../data/pca_clap.json", "w") as f:
+with open(data_path + "/pca_clap.json", "w") as f:
     json.dump(pca_embeddings, f)
 
 
 # %%
 # create pca plot for mel spectrograms - mean
 # read mel spectrograms
-mel_spectrograms = np.load("../data/fm_synth_mel_spectrograms_mean.npy")
+mel_spectrograms = np.load(data_path + "/fm_synth_mel_spectrograms_mean.npy")
 
 # create PCA
 pca = PCA(n_components=2, whiten=True, random_state=42)
@@ -282,11 +284,11 @@ plt.title(
     f"PCA of FM synth mel spectrograms (mean)\nexplained variance ratio: {np.round(pca.explained_variance_ratio_.sum(), 2)}", fontsize=fontsize)
 
 # save figure as png
-plt.savefig("../figures/pca_mels_mean.png", format="png")
+plt.savefig(data_path + "/pca_mels_mean.png", format="png")
 
 # save the pca plot as a fluid dataset
 pca_mels = array2fluid_dataset(mel_spectrograms_2d_pca)
-with open("../data/pca_mels_mean.json", "w") as f:
+with open(data_path + "/pca_mels_mean.json", "w") as f:
     json.dump(pca_mels, f)
 
 # %%

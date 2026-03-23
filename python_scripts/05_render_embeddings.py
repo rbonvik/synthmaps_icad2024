@@ -1,15 +1,17 @@
 # %%
 # imports
 import numpy as np
-from utils import FmSynthDataset
+from utils import FmSynthDataset, get_data_path
 from frechet_audio_distance import FrechetAudioDistance
 from tqdm import tqdm
+
+data_path = get_data_path()
 
 # %%
 # create the dataset
 sr = 48000
 dur = 0.25  # we use 0.25 seconds for the embeddings
-csv_path = "../data/fm_synth_params.csv"
+csv_path = data_path + "/fm_synth_params.csv"
 fm_synth_ds = FmSynthDataset(csv_path, sr=sr, dur=dur)
 test_fm = fm_synth_ds[0][0]
 
@@ -42,7 +44,7 @@ for i in tqdm(range(len(fm_synth_ds))):
 # %%
 # save all_embs to disk - ENCODEC
 print(all_embs.shape)
-np.save("../data/fm_synth_encodec_embeddings.npy", all_embs)
+np.save(data_path + "/fm_synth_encodec_embeddings.npy", all_embs)
 print("Saved fm_synth_encodec_embeddings.npy")
 
 # %%
@@ -66,5 +68,5 @@ for i in tqdm(range(len(fm_synth_ds))):
 # %%
 # save all_embs to disk - CLAP
 print(all_embs.shape)
-np.save("../data/fm_synth_clap_embeddings.npy", all_embs)
+np.save(data_path + "/fm_synth_clap_embeddings.npy", all_embs)
 print("Saved fm_synth_clap_embeddings.npy")

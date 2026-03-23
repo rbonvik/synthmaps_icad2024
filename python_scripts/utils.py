@@ -2,6 +2,15 @@ import numpy as np
 from numba import jit
 import pandas as pd
 from torch.utils.data import Dataset
+import os
+import json
+
+def get_data_path():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    path_file = os.path.normpath(os.path.join(script_dir, "..", "paths.json"))
+    with open(path_file, "r") as f:
+        paths = json.load(f)
+    return paths["datapath"]
 
 
 @jit(nopython=True)

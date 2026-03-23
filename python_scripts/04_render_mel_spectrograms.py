@@ -5,13 +5,15 @@ import torch
 from torchaudio.functional import amplitude_to_DB
 from torchaudio.transforms import MelSpectrogram
 from tqdm import tqdm
-from utils import FmSynthDataset
+from utils import FmSynthDataset, get_data_path
+
+data_path = get_data_path()
 
 # %%
 # create the dataset
 sr = 48000
 dur = 1
-csv_path = "../data/fm_synth_params.csv"
+csv_path = data_path + "/fm_synth_params.csv"
 fm_synth_ds = FmSynthDataset(csv_path, sr=sr, dur=dur)
 
 # %%
@@ -41,7 +43,7 @@ for i in tqdm(range(len(fm_synth_ds))):
 # %%
 # save all_mel to disk - mean
 print(all_mel.shape)
-np.save("../data/fm_synth_mel_spectrograms_mean.npy", all_mel)
+np.save(data_path + "/fm_synth_mel_spectrograms_mean.npy", all_mel)
 print("Saved fm_synth_mel_spectrograms_mean.npy")
 
 # %%

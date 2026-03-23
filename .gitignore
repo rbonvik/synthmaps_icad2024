@@ -9,3 +9,7 @@ python_scripts/checkpoints/
 *.json
 *.npy
 *.pdf
+paths.json
+.venv/
+submit_job.sh
+result.txt

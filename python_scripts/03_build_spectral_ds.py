@@ -3,13 +3,18 @@ from tqdm import tqdm
 from pytimbre.waveform import Waveform
 from pytimbre.spectral.spectra import SpectrumByFFT
 import pandas as pd
-from utils import FmSynthDataset
+from utils import FmSynthDataset, get_data_path
 import json
+import warnings
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
+data_path = get_data_path()
 
 # create the dataset
 sr = 48000
 dur = 1
-csv_path = "../data/fm_synth_params.csv"
+csv_path = data_path + "/fm_synth_params.csv"
 fm_synth_ds = FmSynthDataset(csv_path, sr=sr, dur=dur)
 
 
@@ -38,7 +43,7 @@ def extract_features(i, synths, sr):
 
 
 if __name__ == '__main__':
-    executor = ProcessPoolExecutor()
+    executor = ProcessPoolExecutor(max_workers=40)
     jobs = [executor.submit(extract_features, idx, fm_synth_ds, sr)
             for idx in range(len(fm_synth_ds))]
     results = []
@@ -48,7 +53,7 @@ if __name__ == '__main__':
 
     # save to json
     json_object = json.dumps(results, indent=4)
-    outfile_path = "../data/fm_synth_spectral_features.json"
+    outfile_path = data_path + "/fm_synth_spectral_features.json"
     with open(outfile_path, "w") as outfile:
         outfile.write(json_object)
     print("Features saved to json")
@@ -62,5 +67,5 @@ if __name__ == '__main__':
     # order by index
     df_perceptual.sort_index(inplace=True)
     df_perceptual.to_csv(
-        "../data/fm_synth_spectral_features.csv", index=True)
+        data_path + "/fm_synth_spectral_features.csv", index=True)
     print("Features saved to csv")
