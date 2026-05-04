@@ -13,3 +13,5 @@ paths.json
 .venv/
 submit_job.sh
 result.txt
+slurm/
+logs/

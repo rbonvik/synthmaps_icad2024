@@ -5,12 +5,29 @@ from torch.utils.data import Dataset
 import os
 import json
 
-def get_data_path():
+def get_path(path_name):
+    """Read a named path from paths.json (sibling of python_scripts/)."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     path_file = os.path.normpath(os.path.join(script_dir, "..", "paths.json"))
     with open(path_file, "r") as f:
         paths = json.load(f)
-    return paths["datapath"]
+    return paths[path_name]
+ 
+ 
+def get_selected_metrics_paths():
+    """Return absolute paths to the metrics CSVs of every selected dataset.
+ 
+    The manifest stores each entry's metrics_csv as e.g. 'metrics_out/foo.csv',
+    which is relative to the parent of metricspath in paths.json.
+    """
+    selected_path = get_path("selecteddatasetspath")
+    metrics_root = os.path.dirname(get_path("metricspath"))
+    with open(selected_path, "r") as f:
+        manifest = json.load(f)
+    return [
+        os.path.join(metrics_root, d["metrics_csv"])
+        for d in manifest["datasets"]
+    ]
 
 
 @jit(nopython=True)
