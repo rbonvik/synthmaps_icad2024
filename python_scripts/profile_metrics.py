@@ -39,9 +39,9 @@ PARAMS = [
 PARAM_LABELS = {
     "dipolar_energy": "Dipolar energy",
     "magnet_flips": "Magnet flips",
-    "total_mag_angle": "Total magnetic angle",
-    "hamming_from_init": "Hamming from initial state",
-    "total_mag_magnitude": "Total magnetic magnitude",
+    "total_mag_angle": "Total mag. angle",
+    "hamming_from_init": "Hamming dist. from init.",
+    "total_mag_magnitude": "Total mag. magnitude",
     "ice_rule_density": "Ice rule density",
     "ice_rule_violation_density": "Ice rule violation density",
     "vertex_transitions": "Vertex transitions",
