@@ -20,7 +20,7 @@ def get_selected_metrics_paths():
     The manifest stores each entry's metrics_csv as e.g. 'metrics_out/foo.csv',
     which is relative to the parent of metricspath in paths.json.
     """
-    selected_path = get_path("selecteddatasetspath")
+    selected_path = get_path("datasetSummaryPath")
     metrics_root = os.path.dirname(get_path("metricspath"))
     with open(selected_path, "r") as f:
         manifest = json.load(f)

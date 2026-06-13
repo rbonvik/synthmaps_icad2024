@@ -2,12 +2,12 @@
 07_run_pipeline_per_mapping.py
 ==============================
 Orchestrates the SynthMaps feature-extraction and PCA pipeline (scripts 02–06)
-for each of the FM-parameter mappings (A, B) produced by build_mapped_params.py.
+for each of the FM-parameter mappings (A, B, C, D, E, F) produced by build_mapped_params.py.
 
 For each mapping the script:
   1. Points the pipeline at the mapping's parameter CSV
      (<synthmapspath>/mapped_params/mapping_X/_all_datasets.csv)
-  2. Renders one concatenated WAV per dataset    (NEW)
+  2. Renders one concatenated WAV per dataset
   3. Runs timbral feature extraction  (≈ script 02)
   4. Runs spectral feature extraction (≈ script 03)
   5. Renders mel spectrograms         (≈ script 04)
@@ -66,10 +66,11 @@ from sklearn.preprocessing import MinMaxScaler
 
 SR   = 48000
 DUR  = 1.0          # seconds per timestep for perceptual/spectral/mel
-DUR_EMBED = 0.25    # seconds per timestep for embeddings (as in script 05)
+DUR_EMBED_ENCODEC = 0.25   # as in script 05
+DUR_EMBED_CLAP    = 1.0    # CLAP needs a longer window or returns empty
 N_MELS = 200
 
-MAPPINGS = ["A", "B"]
+MAPPINGS = ["A", "B", "C", "D", "E", "F"]
 
 STAGES = ["audio", "perceptual", "spectral", "mel", "embeddings", "pca"]
 
@@ -131,6 +132,35 @@ def synth_row(row, sr: int, dur: float):
     mi = np.array([row.mod_index])
     audio = fm_synth_gen(int(dur * sr), sr, f, hr, mi)
     return audio, row.freq, row.harm_ratio, row.mod_index
+
+
+# ── parallel-extraction helper ───────────────────────────────────────────────
+
+def parallel_extract(extractor, args, n_jobs: int, desc: str) -> list:
+    """Run extractor over args in parallel using map+chunking."""
+    if not args:
+        return []
+
+    print(f"  Smoke-testing {desc} on row 0 in main process...")
+    first_result = extractor(args[0])
+    print(f"  Smoke test passed.")
+
+    if len(args) == 1:
+        return [first_result]
+
+    remaining = args[1:]
+    # chunksize: aim for ~100 chunks per worker over the whole job.
+    # Larger chunks reduce IPC overhead at the cost of less even
+    # load-balancing near the end. For 100k items and 32 workers,
+    # chunks of ~30 are a reasonable middle ground.
+    chunksize = max(1, len(remaining) // (n_jobs * 100))
+
+    results = [first_result]
+    with ProcessPoolExecutor(max_workers=n_jobs) as ex:
+        for r in tqdm(ex.map(extractor, remaining, chunksize=chunksize),
+                      total=len(remaining), desc=f"  {desc}"):
+            results.append(r)
+    return results
 
 
 # ── stage 0: audio rendering (one WAV per dataset) ───────────────────────────
@@ -237,13 +267,7 @@ def run_perceptual(paths: dict, n_jobs: int):
           f"with {n_jobs} worker(s)...")
 
     args = [(i, row._asdict(), SR) for i, row in enumerate(df.itertuples(index=False))]
-
-    results = []
-    with ProcessPoolExecutor(max_workers=n_jobs) as ex:
-        futures = {ex.submit(_extract_perceptual, a): a[0] for a in args}
-        for fut in tqdm(as_completed(futures), total=len(futures),
-                        desc="  perceptual"):
-            results.append(fut.result())
+    results = parallel_extract(_extract_perceptual, args, n_jobs, "perceptual")
 
     with open(out_json, "w") as f:
         json.dump(results, f, indent=2)
@@ -295,13 +319,7 @@ def run_spectral(paths: dict, n_jobs: int):
           f"with {n_jobs} worker(s)...")
 
     args = [(i, row._asdict(), SR) for i, row in enumerate(df.itertuples(index=False))]
-
-    results = []
-    with ProcessPoolExecutor(max_workers=n_jobs) as ex:
-        futures = {ex.submit(_extract_spectral, a): a[0] for a in args}
-        for fut in tqdm(as_completed(futures), total=len(futures),
-                        desc="  spectral"):
-            results.append(fut.result())
+    results = parallel_extract(_extract_spectral, args, n_jobs, "spectral")
 
     with open(out_json, "w") as f:
         json.dump(results, f, indent=2)
@@ -353,7 +371,16 @@ def run_mel(paths: dict):
 
 def run_embeddings(paths: dict):
     from utils import fm_synth_gen
-    from frechet_audio_distance import FrechetAudioDistance
+    # laion_clap (imported transitively by frechet_audio_distance) calls
+    # argparse at module import time and chokes on our CLI args.
+    # Stash and restore sys.argv around the import.
+    import sys
+    _saved_argv = sys.argv
+    sys.argv = [sys.argv[0]]
+    try:
+        from frechet_audio_distance import FrechetAudioDistance
+    finally:
+        sys.argv = _saved_argv
 
     synthmaps_root = get_path("synthmapspath")
     ckpt_dir       = os.path.join(synthmaps_root, "checkpoints")
@@ -361,37 +388,58 @@ def run_embeddings(paths: dict):
     df = load_params(paths["params_csv"])
     n  = len(df)
 
-    samples = int(DUR_EMBED * SR)
-    print(f"  Pre-rendering {n} synths at {DUR_EMBED}s...")
-    all_audio = np.zeros((n, samples))
-    for i, row in enumerate(tqdm(df.itertuples(index=False), total=n,
-                                 desc="  render")):
-        all_audio[i] = fm_synth_gen(samples, SR,
-                                    np.array([row.freq]),
-                                    np.array([row.harm_ratio]),
-                                    np.array([row.mod_index]))
+    def render_audio(dur_s: float) -> np.ndarray:
+        samples = int(dur_s * SR)
+        out = np.zeros((n, samples), dtype=np.float32)
+        for i, row in enumerate(tqdm(df.itertuples(index=False), total=n,
+                                     desc=f"  render({dur_s}s)")):
+            out[i] = fm_synth_gen(samples, SR,
+                                  np.array([row.freq]),
+                                  np.array([row.harm_ratio]),
+                                  np.array([row.mod_index]))
+        return out
 
+    # ---------- EnCodec ----------
     enc_npy = paths["encodec_npy"]
     if os.path.exists(enc_npy):
         print("  [skip] EnCodec embeddings already exist")
     else:
+        print(f"  Pre-rendering {n} synths at {DUR_EMBED_ENCODEC}s for EnCodec...")
+        all_audio = render_audio(DUR_EMBED_ENCODEC)
+
         print("  Rendering EnCodec embeddings...")
         frechet = FrechetAudioDistance(
             ckpt_dir=os.path.join(ckpt_dir, "encodec"),
             model_name="encodec",
             sample_rate=SR, channels=2, verbose=False,
         )
+        # probe shape on first valid clip
         test_embs = frechet.get_embeddings([all_audio[0]], SR)
+        if test_embs.size == 0:
+            raise RuntimeError(
+                f"EnCodec returned empty embedding for a {DUR_EMBED_ENCODEC}s clip. "
+                f"Try increasing DUR_EMBED_ENCODEC."
+            )
         all_embs  = np.zeros((n, test_embs.shape[0], test_embs.shape[1]))
         for i in tqdm(range(n), desc="  encodec"):
-            all_embs[i] = frechet.get_embeddings([all_audio[i]], SR)
+            embs = frechet.get_embeddings([all_audio[i]], SR)
+            if embs.size == 0:
+                # extremely rare — keep zeros, warn once
+                print(f"    [warn] empty EnCodec embedding at row {i}")
+                continue
+            all_embs[i] = embs
         np.save(enc_npy, all_embs)
         print(f"  Saved EnCodec embeddings → {enc_npy}  shape={all_embs.shape}")
+        del all_audio  # free RAM before CLAP
 
+    # ---------- CLAP ----------
     clap_npy = paths["clap_npy"]
     if os.path.exists(clap_npy):
         print("  [skip] CLAP embeddings already exist")
     else:
+        print(f"  Pre-rendering {n} synths at {DUR_EMBED_CLAP}s for CLAP...")
+        all_audio = render_audio(DUR_EMBED_CLAP)
+
         print("  Rendering CLAP embeddings...")
         frechet = FrechetAudioDistance(
             ckpt_dir=os.path.join(ckpt_dir, "clap"),
@@ -399,9 +447,20 @@ def run_embeddings(paths: dict):
             sample_rate=SR, verbose=False,
         )
         test_embs = frechet.get_embeddings([all_audio[0]], SR)
+        if test_embs.size == 0:
+            raise RuntimeError(
+                f"CLAP returned empty embedding for a {DUR_EMBED_CLAP}s clip. "
+                f"Increase DUR_EMBED_CLAP (try 2.0 or higher) or check that "
+                f"the CLAP checkpoint is intact at "
+                f"{os.path.join(ckpt_dir, 'clap')}."
+            )
         all_embs  = np.zeros((n, test_embs.shape[-1]))
         for i in tqdm(range(n), desc="  clap"):
-            all_embs[i] = frechet.get_embeddings([all_audio[i]], SR)
+            embs = frechet.get_embeddings([all_audio[i]], SR)
+            if embs.size == 0:
+                print(f"    [warn] empty CLAP embedding at row {i}")
+                continue
+            all_embs[i] = embs
         np.save(clap_npy, all_embs)
         print(f"  Saved CLAP embeddings    → {clap_npy}  shape={all_embs.shape}")
 

@@ -25,12 +25,26 @@ from utils import get_path
 
 # %%
 # config
-PARAMS = ["dipolar_energy", "magnet_flips", "total_mag_angle", "ice_rule_density"]
+PARAMS = [
+    "dipolar_energy",
+    "magnet_flips",
+    "hamming_from_init",
+    "total_mag_magnitude",
+    "total_mag_angle",
+    "ice_rule_density",
+    "ice_rule_violation_density",
+    "vertex_transitions",
+]
+
 PARAM_LABELS = {
     "dipolar_energy": "Dipolar energy",
     "magnet_flips": "Magnet flips",
     "total_mag_angle": "Total magnetic angle",
+    "hamming_from_init": "Hamming from initial state",
+    "total_mag_magnitude": "Total magnetic magnitude",
     "ice_rule_density": "Ice rule density",
+    "ice_rule_violation_density": "Ice rule violation density",
+    "vertex_transitions": "Vertex transitions",
 }
 N_TIMESERIES_EXAMPLES = 6   # how many datasets to plot in the trace grid
 DPI = 200
@@ -42,7 +56,7 @@ FIGSIZE_WIDE = (14, 6)
 def load_manifest():
     """Return (datasets_list, metrics_root) where metrics_root is the
     directory the relative metrics_csv paths in the manifest are relative to."""
-    selected_path = get_path("selecteddatasetspath")
+    selected_path = get_path("datasetSummaryPath")
     metrics_root = os.path.dirname(get_path("metricspath"))  # parent of metrics_out/
     with open(selected_path, "r") as f:
         manifest = json.load(f)
@@ -227,42 +241,50 @@ def plot_rate_distributions(all_metrics, out_path):
 
 # %%
 # plot 5 — cross-metric correlation
-def plot_correlation(all_metrics, out_path):
-    """Two-panel figure: left = correlation heatmap pooled across all datasets,
-    right = pairwise scatter matrix on a downsample."""
+def plot_correlation(all_metrics, out_path, show_hexbin=False):
+    """Correlation heatmap pooled across all datasets. If show_hexbin=True,
+    also includes a pairwise 2D hexbin on a downsample as a second panel."""
     pooled = pd.concat([df[PARAMS] for df in all_metrics.values()], ignore_index=True)
-
-    # downsample for scatter (pooled can be 100ks of points)
-    n_total = len(pooled)
-    n_sample = min(20000, n_total)
-    sampled = pooled.sample(n=n_sample, random_state=42)
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6), dpi=DPI,
-                             gridspec_kw={"width_ratios": [1, 1.4]})
-
-    # left — correlation heatmap
     corr = pooled.corr()
-    im = axes[0].imshow(corr.values, vmin=-1, vmax=1, cmap="RdBu_r")
-    axes[0].set_xticks(range(len(PARAMS)))
-    axes[0].set_yticks(range(len(PARAMS)))
-    axes[0].set_xticklabels([PARAM_LABELS[p] for p in PARAMS], rotation=30, ha="right")
-    axes[0].set_yticklabels([PARAM_LABELS[p] for p in PARAMS])
-    for i in range(len(PARAMS)):
-        for k in range(len(PARAMS)):
-            axes[0].text(k, i, f"{corr.values[i, k]:.2f}",
-                         ha="center", va="center",
-                         color="white" if abs(corr.values[i, k]) > 0.5 else "black")
-    axes[0].set_title("Pearson correlation (pooled)")
-    plt.colorbar(im, ax=axes[0], fraction=0.04)
 
-    # right — 2D hexbin between metric 0 and metric 2 (most informative usually)
-    ax = axes[1]
-    hb = ax.hexbin(sampled[PARAMS[0]], sampled[PARAMS[2]],
-                   gridsize=50, cmap="viridis", mincnt=1, bins="log")
-    ax.set_xlabel(PARAM_LABELS[PARAMS[0]])
-    ax.set_ylabel(PARAM_LABELS[PARAMS[2]])
-    ax.set_title(f"Joint density: {PARAMS[0]} vs {PARAMS[2]}")
-    plt.colorbar(hb, ax=ax, label="log(count)")
+    def draw_heatmap(ax):
+        im = ax.imshow(corr.values, vmin=-1, vmax=1, cmap="RdBu_r")
+        ax.set_xticks(range(len(PARAMS)))
+        ax.set_yticks(range(len(PARAMS)))
+        ax.set_xticklabels([PARAM_LABELS[p] for p in PARAMS], rotation=30, ha="right")
+        ax.set_yticklabels([PARAM_LABELS[p] for p in PARAMS])
+        for i in range(len(PARAMS)):
+            for k in range(len(PARAMS)):
+                ax.text(k, i, f"{corr.values[i, k]:.2f}",
+                        ha="center", va="center",
+                        color="white" if abs(corr.values[i, k]) > 0.5 else "black")
+        ax.set_title("Pearson correlation (pooled)")
+        return im
+
+    if show_hexbin:
+        # downsample for scatter (pooled can be 100ks of points)
+        n_sample = min(20000, len(pooled))
+        sampled = pooled.sample(n=n_sample, random_state=42)
+
+        fig, axes = plt.subplots(1, 2, figsize=(14, 6), dpi=DPI,
+                                 gridspec_kw={"width_ratios": [1, 1.4]})
+
+        # left — correlation heatmap
+        im = draw_heatmap(axes[0])
+        plt.colorbar(im, ax=axes[0], fraction=0.04)
+
+        # right — 2D hexbin between metric 0 and metric 2 (most informative usually)
+        ax = axes[1]
+        hb = ax.hexbin(sampled[PARAMS[0]], sampled[PARAMS[2]],
+                       gridsize=50, cmap="viridis", mincnt=1, bins="log")
+        ax.set_xlabel(PARAM_LABELS[PARAMS[0]])
+        ax.set_ylabel(PARAM_LABELS[PARAMS[2]])
+        ax.set_title(f"Joint density: {PARAMS[0]} vs {PARAMS[2]}")
+        plt.colorbar(hb, ax=ax, label="log(count)")
+    else:
+        fig, ax = plt.subplots(figsize=(7, 6), dpi=DPI)
+        im = draw_heatmap(ax)
+        plt.colorbar(im, ax=ax, fraction=0.04)
 
     fig.tight_layout()
     fig.savefig(out_path, bbox_inches="tight")
@@ -296,8 +318,8 @@ def plot_coverage_3d(all_metrics, out_path):
     ax.set_title("Coverage of joint metric space (downsampled)")
 
     # legend would be huge — show a small one
-    ax.legend(fontsize=6, loc="upper left", bbox_to_anchor=(1.05, 1.0),
-              ncol=1, frameon=False)
+    #ax.legend(fontsize=6, loc="upper left", bbox_to_anchor=(1.05, 1.0),
+    #          ncol=1, frameon=False)
     fig.tight_layout()
     fig.savefig(out_path, bbox_inches="tight")
     plt.close(fig)
